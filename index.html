@@ -2,54 +2,65 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Artale 交易助手 - 排序優化版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artale 交易助理 - 線上穩定版</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .summary { display: flex; gap: 15px; margin-bottom: 25px; }
-        .card { flex: 1; padding: 15px; border-radius: 8px; color: white; text-align: center; }
-        .card b { font-size: 1.3em; display: block; margin-top: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; }
-        th { background: #1e293b; color: white; }
-        input { width: 85%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; padding: 10px; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .card { flex: 1; min-width: 150px; padding: 12px; border-radius: 8px; color: white; text-align: center; }
+        .card b { font-size: 1.2em; display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: center; }
+        th { background: #1e293b; color: white; position: sticky; top: 0; }
+        input { width: 90%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; }
         .btn { cursor: pointer; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold; }
         .btn-search { background: #3b82f6; color: white; }
-        .btn-del { background: #ef4444; color: white; width: 30px; font-size: 14px; }
-        .btn-add { background: #10b981; color: white; margin-top: 20px; padding: 10px 20px; }
+        .btn-del { background: #ef4444; color: white; width: 30px; }
+        .btn-add { background: #10b981; color: white; margin-top: 15px; }
+        .btn-util { background: #64748b; color: white; font-size: 12px; margin-left: 5px; }
         .pos { color: #10b981; font-weight: bold; }
         .neg { color: #ef4444; font-weight: bold; }
-        .active-row { background-color: #e0f2fe !important; transition: 0.3s; }
+        .active-row { background-color: #e0f2fe !important; }
+        @media (max-width: 600px) { input { font-size: 12px; } .btn { padding: 4px 8px; } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="margin-top:0;">📈 Artale 卷軸利潤試算 (按名稱排序)</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin:0;">📊 Artale 交易助理</h2>
+        <div>
+            <button class="btn btn-util" onclick="exportData()">匯出備份</button>
+            <button class="btn btn-util" onclick="importData()">匯入數據</button>
+        </div>
+    </div>
+    <br>
     <div class="summary">
         <div class="card" style="background:#64748b">總成本<b id="t-cost">0</b></div>
         <div class="card" style="background:#10b981">預期利潤<b id="t-profit">0</b></div>
         <div class="card" style="background:#f43f5e">獲利率<b id="t-margin">0%</b></div>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th width="22%">項目名稱</th>
-                <th width="14%">成本</th>
-                <th width="10%">數量</th>
-                <th width="14%">目前市價</th>
-                <th width="14%">預期利潤</th>
-                <th>功能</th>
-            </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-    </table>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>項目名稱</th>
+                    <th>成本</th>
+                    <th>數量</th>
+                    <th>目前市價</th>
+                    <th>利潤</th>
+                    <th>功能</th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
     <button class="btn btn-add" onclick="addRow()">+ 新增項目</button>
 </div>
 
 <script>
-    // 嚴格校對之 12 筆資料，並預先完成名稱排序
     const INITIAL_DATA = [
         { n: "弩攻擊詛咒卷軸30%", c: 380, a: 2, m: 400 },
         { n: "弩攻擊詛咒卷軸30%", c: 389, a: 1, m: 400 },
@@ -66,8 +77,7 @@
     ];
 
     window.onload = () => {
-        const saved = localStorage.getItem('artale_sorted_v1');
-        // 如果沒有存檔，加載已排序的初始資料
+        const saved = localStorage.getItem('artale_online_v1');
         const data = saved ? JSON.parse(saved) : INITIAL_DATA;
         data.forEach(d => addRow(d));
         calc();
@@ -94,27 +104,15 @@
         const row = btn.closest('tr');
         const name = row.querySelector('.in-n').value;
         const priceInput = row.querySelector('.in-m');
-        
         if (!name) return;
-
         navigator.clipboard.writeText(name);
-
-        const url = `https://artale-market.org/transaction?itemName=${encodeURIComponent(name)}&transactionType=sell&isActive=true&currency=snow&timeRange=24`;
-        window.open(url, "_blank");
-
+        window.open(`https://artale-market.org/transaction?itemName=${encodeURIComponent(name)}&transactionType=sell&isActive=true&currency=snow&timeRange=24`, "_blank");
         document.querySelectorAll('tr').forEach(r => r.classList.remove('active-row'));
         row.classList.add('active-row');
-        
-        setTimeout(() => {
-            priceInput.focus();
-            priceInput.select();
-        }, 150);
+        setTimeout(() => { priceInput.focus(); priceInput.select(); }, 150);
     }
 
-    function delRow(btn) {
-        btn.closest('tr').remove();
-        calc();
-    }
+    function delRow(btn) { if(confirm("確定刪除？")) { btn.closest('tr').remove(); calc(); } }
 
     function calc() {
         let tC = 0, tP = 0, storage = [];
@@ -133,7 +131,31 @@
         document.getElementById('t-cost').innerText = tC.toLocaleString();
         document.getElementById('t-profit').innerText = tP.toLocaleString();
         document.getElementById('t-margin').innerText = tC > 0 ? ((tP / tC) * 100).toFixed(2) + "%" : "0%";
-        localStorage.setItem('artale_sorted_v1', JSON.stringify(storage));
+        localStorage.setItem('artale_online_v1', JSON.stringify(storage));
+    }
+
+    function exportData() {
+        const data = localStorage.getItem('artale_online_v1');
+        const blob = new Blob([data], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `artale_backup_${new Date().toLocaleDateString()}.json`;
+        a.click();
+    }
+
+    function importData() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = event => {
+                localStorage.setItem('artale_online_v1', event.target.result);
+                location.reload();
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     }
 </script>
 </body>
