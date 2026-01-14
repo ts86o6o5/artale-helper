@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Artale 交易助手 - 排序優化版</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .summary { display: flex; gap: 15px; margin-bottom: 25px; }
+        .card { flex: 1; padding: 15px; border-radius: 8px; color: white; text-align: center; }
+        .card b { font-size: 1.3em; display: block; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; }
+        th { background: #1e293b; color: white; }
+        input { width: 85%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; }
+        .btn { cursor: pointer; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold; }
+        .btn-search { background: #3b82f6; color: white; }
+        .btn-del { background: #ef4444; color: white; width: 30px; font-size: 14px; }
+        .btn-add { background: #10b981; color: white; margin-top: 20px; padding: 10px 20px; }
+        .pos { color: #10b981; font-weight: bold; }
+        .neg { color: #ef4444; font-weight: bold; }
+        .active-row { background-color: #e0f2fe !important; transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="margin-top:0;">📈 Artale 卷軸利潤試算 (按名稱排序)</h2>
+    <div class="summary">
+        <div class="card" style="background:#64748b">總成本<b id="t-cost">0</b></div>
+        <div class="card" style="background:#10b981">預期利潤<b id="t-profit">0</b></div>
+        <div class="card" style="background:#f43f5e">獲利率<b id="t-margin">0%</b></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="22%">項目名稱</th>
+                <th width="14%">成本</th>
+                <th width="10%">數量</th>
+                <th width="14%">目前市價</th>
+                <th width="14%">預期利潤</th>
+                <th>功能</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+    <button class="btn btn-add" onclick="addRow()">+ 新增項目</button>
+</div>
+
+<script>
+    // 嚴格校對之 12 筆資料，並預先完成名稱排序
+    const INITIAL_DATA = [
+        { n: "弩攻擊詛咒卷軸30%", c: 380, a: 2, m: 400 },
+        { n: "弩攻擊詛咒卷軸30%", c: 389, a: 1, m: 400 },
+        { n: "弩攻擊詛咒卷軸30%", c: 390, a: 2, m: 400 },
+        { n: "腰帶敏捷卷軸60%", c: 340, a: 1, m: 550 },
+        { n: "腰帶力量卷軸60%", c: 580, a: 1, m: 495 },
+        { n: "墜飾敏捷卷軸30%", c: 570, a: 1, m: 620 },
+        { n: "墜飾敏捷卷軸30%", c: 600, a: 1, m: 620 },
+        { n: "墜飾智力卷軸30%", c: 285, a: 1, m: 330 },
+        { n: "墜飾力量卷軸30%", c: 680, a: 2, m: 900 },
+        { n: "墜飾力量卷軸30%", c: 720, a: 3, m: 900 },
+        { n: "墜飾力量卷軸30%", c: 750, a: 5, m: 900 },
+        { n: "墜飾力量卷軸60%", c: 410, a: 1, m: 500 }
+    ];
+
+    window.onload = () => {
+        const saved = localStorage.getItem('artale_sorted_v1');
+        // 如果沒有存檔，加載已排序的初始資料
+        const data = saved ? JSON.parse(saved) : INITIAL_DATA;
+        data.forEach(d => addRow(d));
+        calc();
+    };
+
+    function addRow(item = { n: '', c: 0, a: 0, m: 0 }) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" value="${item.n}" class="in-n" oninput="calc()"></td>
+            <td><input type="number" value="${item.c}" class="in-c" oninput="calc()"></td>
+            <td><input type="number" value="${item.a}" class="in-a" oninput="calc()"></td>
+            <td><input type="number" value="${item.m}" class="in-m" oninput="calc()" style="background:#fffbeb; font-weight:bold;"></td>
+            <td class="row-p">0</td>
+            <td>
+                <button class="btn btn-search" onclick="doSearch(this)">查價</button>
+                <button class="btn btn-del" onclick="delRow(this)">X</button>
+            </td>
+        `;
+        document.getElementById('tbody').appendChild(tr);
+        calc();
+    }
+
+    function doSearch(btn) {
+        const row = btn.closest('tr');
+        const name = row.querySelector('.in-n').value;
+        const priceInput = row.querySelector('.in-m');
+        
+        if (!name) return;
+
+        navigator.clipboard.writeText(name);
+
+        const url = `https://artale-market.org/transaction?itemName=${encodeURIComponent(name)}&transactionType=sell&isActive=true&currency=snow&timeRange=24`;
+        window.open(url, "_blank");
+
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('active-row'));
+        row.classList.add('active-row');
+        
+        setTimeout(() => {
+            priceInput.focus();
+            priceInput.select();
+        }, 150);
+    }
+
+    function delRow(btn) {
+        btn.closest('tr').remove();
+        calc();
+    }
+
+    function calc() {
+        let tC = 0, tP = 0, storage = [];
+        document.querySelectorAll('#tbody tr').forEach(r => {
+            const n = r.querySelector('.in-n').value;
+            const c = parseFloat(r.querySelector('.in-c').value) || 0;
+            const a = parseFloat(r.querySelector('.in-a').value) || 0;
+            const m = parseFloat(r.querySelector('.in-m').value) || 0;
+            const costTotal = c * a;
+            const profit = (m * a) - costTotal;
+            r.querySelector('.row-p').innerText = profit.toLocaleString();
+            r.querySelector('.row-p').className = "row-p " + (profit >= 0 ? "pos" : "neg");
+            tC += costTotal; tP += profit;
+            storage.push({n, c, a, m});
+        });
+        document.getElementById('t-cost').innerText = tC.toLocaleString();
+        document.getElementById('t-profit').innerText = tP.toLocaleString();
+        document.getElementById('t-margin').innerText = tC > 0 ? ((tP / tC) * 100).toFixed(2) + "%" : "0%";
+        localStorage.setItem('artale_sorted_v1', JSON.stringify(storage));
+    }
+</script>
+</body>
+</html>
