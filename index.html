@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Artale 交易助理 - 線上穩定版</title>
+    <title>卷軸成本 - 線上穩定版</title>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; padding: 10px; }
         .container { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -29,7 +29,7 @@
 
 <div class="container">
     <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h2 style="margin:0;">📊 Artale 交易助理</h2>
+        <h2 style="margin:0;">📊 卷軸成本</h2>
         <div>
             <button class="btn btn-util" onclick="exportData()">匯出備份</button>
             <button class="btn btn-util" onclick="importData()">匯入數據</button>
@@ -39,6 +39,7 @@
     <div class="summary">
         <div class="card" style="background:#64748b">總成本<b id="t-cost">0</b></div>
         <div class="card" style="background:#10b981">預期利潤<b id="t-profit">0</b></div>
+        <div class="card" style="background:#3b82f6">預期總收入<b id="t-revenue">0</b></div>
         <div class="card" style="background:#f43f5e">獲利率<b id="t-margin">0%</b></div>
     </div>
 
@@ -61,24 +62,15 @@
 </div>
 
 <script>
-    const INITIAL_DATA = [
-        { n: "弩攻擊詛咒卷軸30%", c: 380, a: 2, m: 400 },
-        { n: "弩攻擊詛咒卷軸30%", c: 389, a: 1, m: 400 },
-        { n: "弩攻擊詛咒卷軸30%", c: 390, a: 2, m: 400 },
-        { n: "腰帶敏捷卷軸60%", c: 340, a: 1, m: 550 },
-        { n: "腰帶力量卷軸60%", c: 580, a: 1, m: 495 },
-        { n: "墜飾敏捷卷軸30%", c: 570, a: 1, m: 620 },
-        { n: "墜飾敏捷卷軸30%", c: 600, a: 1, m: 620 },
-        { n: "墜飾智力卷軸30%", c: 285, a: 1, m: 330 },
-        { n: "墜飾力量卷軸30%", c: 680, a: 2, m: 900 },
-        { n: "墜飾力量卷軸30%", c: 720, a: 3, m: 900 },
-        { n: "墜飾力量卷軸30%", c: 750, a: 5, m: 900 },
-        { n: "墜飾力量卷軸60%", c: 410, a: 1, m: 500 }
-    ];
+    const INITIAL_DATA = [{"n":"弩攻擊詛咒卷軸30%","c":380,"a":2,"m":750},{"n":"弩攻擊詛咒卷軸30%","c":389,"a":1,"m":750},{"n":"弩攻擊詛咒卷軸30%","c":390,"a":2,"m":750},{"n":"腰帶敏捷卷軸60%","c":340,"a":1,"m":900},{"n":"腰帶力量卷軸60%","c":580,"a":1,"m":800},{"n":"墜飾敏捷卷軸30%","c":570,"a":1,"m":880},{"n":"墜飾敏捷卷軸30%","c":600,"a":4,"m":880},{"n":"墜飾智力卷軸30%","c":285,"a":1,"m":395},{"n":"墜飾力量卷軸30%","c":680,"a":2,"m":1150},{"n":"墜飾力量卷軸30%","c":720,"a":3,"m":1150},{"n":"墜飾力量卷軸30%","c":750,"a":5,"m":1150},{"n":"墜飾力量卷軸60%","c":410,"a":1,"m":720},{"n":"弩攻擊詛咒卷軸30%","c":450,"a":3,"m":750},{"n":"弩攻擊詛咒卷軸30%","c":445,"a":1,"m":750},{"n":"頭盔敏捷卷軸60%","c":145,"a":5,"m":140},{"n":"頭盔敏捷卷軸60%","c":150,"a":35,"m":140}];
 
     window.onload = () => {
         const saved = localStorage.getItem('artale_online_v1');
-        const data = saved ? JSON.parse(saved) : INITIAL_DATA;
+        let data = saved ? JSON.parse(saved) : INITIAL_DATA;
+        
+        // 新增：按照名稱排序 (localeCompare 可正確處理中文)
+        data.sort((a, b) => a.n.localeCompare(b.n, 'zh-Hant'));
+        
         data.forEach(d => addRow(d));
         calc();
     };
@@ -115,20 +107,26 @@
     function delRow(btn) { if(confirm("確定刪除？")) { btn.closest('tr').remove(); calc(); } }
 
     function calc() {
-        let tC = 0, tP = 0, storage = [];
+        let tC = 0, tP = 0, tR = 0, storage = [];
         document.querySelectorAll('#tbody tr').forEach(r => {
             const n = r.querySelector('.in-n').value;
             const c = parseFloat(r.querySelector('.in-c').value) || 0;
             const a = parseFloat(r.querySelector('.in-a').value) || 0;
             const m = parseFloat(r.querySelector('.in-m').value) || 0;
             const costTotal = c * a;
-            const profit = (m * a) - costTotal;
+            const revenueTotal = m * a;
+            const profit = revenueTotal - costTotal;
+            
             r.querySelector('.row-p').innerText = profit.toLocaleString();
             r.querySelector('.row-p').className = "row-p " + (profit >= 0 ? "pos" : "neg");
-            tC += costTotal; tP += profit;
+            
+            tC += costTotal; 
+            tP += profit;
+            tR += revenueTotal;
             storage.push({n, c, a, m});
         });
         document.getElementById('t-cost').innerText = tC.toLocaleString();
+        document.getElementById('t-revenue').innerText = tR.toLocaleString();
         document.getElementById('t-profit').innerText = tP.toLocaleString();
         document.getElementById('t-margin').innerText = tC > 0 ? ((tP / tC) * 100).toFixed(2) + "%" : "0%";
         localStorage.setItem('artale_online_v1', JSON.stringify(storage));
